@@ -4,13 +4,12 @@
 import easyocr
 import numpy as np
 from PIL import ImageGrab
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 import time
 import torch
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
-
 
 if torch.cuda.is_available():
     device = 'cuda'
@@ -34,8 +33,8 @@ def extract_date_from_image(image):
     for result in results:
         text = result[1]
         try:
-            # Пытаемся распознать дату в формате "DD-MM-YYYY"
-            date = datetime.strptime(text, "%d-%m-%Y")
+            # Пытаемся распознать дату в формате "DD.MM.YY"
+            date = datetime.strptime(text, "%d.%m.%y")
             return date
         except ValueError:
             continue
@@ -69,7 +68,7 @@ def main():
             elif not is_date_actual(date):
                 print("Ошибка: Дата не актуальна!")
             else:
-                print(f"Дата актуальна: {date.strftime('%Y-%m-%d')}")
+                print(f"Дата актуальна: {date.strftime('%d.%m.%y')}")
         else:
             print("Дата не распознана.")
 
