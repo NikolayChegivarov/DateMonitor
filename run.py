@@ -7,6 +7,7 @@ from PIL import ImageGrab
 from datetime import datetime, timedelta
 import time
 import torch
+import ctypes
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -47,6 +48,11 @@ def is_date_actual(date, delta_days=4):
     return current_date - date <= timedelta(days=delta_days)
 
 
+# Функция для вывода окна с предупреждением
+def show_warning(message):
+    ctypes.windll.user32.MessageBoxW(0, message, "Предупреждение", 0x30)  # 0x30 - иконка предупреждения
+
+
 # Основной цикл программы
 def main():
     # Определяем область экрана, где появляется бирка с датой (left, top, right, bottom)
@@ -64,9 +70,13 @@ def main():
             current_date = datetime.now()
 
             if date > current_date:
-                print("Это будущее еще не наступило. Не торопись ковбой.")
+                message = "Это будущее еще не наступило. Не торопись ковбой."
+                print(message)
+                show_warning(message)  # Вывод окна с предупреждением
             elif not is_date_actual(date):
-                print("Ошибка: Дата не актуальна!")
+                message = "Ошибка: Дата не актуальна!"
+                print(message)
+                show_warning(message)  # Вывод окна с предупреждением
             else:
                 print(f"Дата актуальна: {date.strftime('%d.%m.%y')}")
         else:
