@@ -50,11 +50,14 @@ def is_date_actual(date, delta_days=4):
 
 # Функция для вывода окна с предупреждением
 def show_warning(message):
-    ctypes.windll.user32.MessageBoxW(0, message, "Предупреждение", 0x30)  # 0x30 - иконка предупреждения
+    ctypes.windll.user32.MessageBoxW(0, message, "DataMonitor", 0x30)  # 0x30 - иконка предупреждения
 
 
 # Основной цикл программы
 def main():
+    # Выводим сообщение о запуске
+    show_warning("Мониторинг даты запущен!")
+
     # Определяем область экрана, где появляется бирка с датой (left, top, right, bottom)
     bbox = (593, 357, 756, 448)
 
