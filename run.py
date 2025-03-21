@@ -85,6 +85,13 @@ def main():
         else:
             print("Дата не распознана.")
 
+        # Проверка нажатия клавиши (например, 'q' для выхода)
+        # if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+        #     key = sys.stdin.read(1)
+        #     if key == 'q':
+        #         print("Скрипт остановлен.")
+        #         break
+
         # Пауза перед следующим захватом экрана
         time.sleep(5)
 

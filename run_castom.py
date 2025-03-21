@@ -1,5 +1,5 @@
 # pip install easyocr numpy Pillow torch
-# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # pip install easyocr
 import easyocr
 import numpy as np
@@ -75,7 +75,7 @@ def main():
     show_custom_warning("Распознавание даты запущено")
 
     # Определяем область экрана, где появляется бирка с датой (left, top, right, bottom)
-    bbox = (593, 357, 756, 448)
+    bbox = (1200, 1000, 1500, 1100)
 
     while True:
         # Захватываем область экрана
@@ -89,7 +89,7 @@ def main():
             current_date = datetime.now()
 
             if date > current_date:
-                message = "Это будущее еще не наступило. Не торопись ковбой."
+                message = "Этот день еще не наступил."
                 print(message)
                 show_custom_warning(message)  # Вывод кастомного окна с предупреждением
             elif not is_date_actual(date):
