@@ -10,7 +10,9 @@ from datetime import datetime, timedelta
 import time
 import torch
 import tkinter as tk
-from threading import Thread  # Добавлен импорт для многопоточности
+from threading import Thread
+import threading
+import re  # Добавлен импорт для работы с регулярными выражениями
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -40,21 +42,27 @@ def capture_screen_area(bbox):
 # Функция для распознавания даты
 def extract_date_from_image(image):
     results = reader.readtext(image)
+    print(f"Распознанные результаты: {results}")  # Отладочная информация
     for result in results:
-        text = result[1]
-        try:
-            # Пытаемся распознать дату в формате "DD.MM.YY"
-            date = datetime.strptime(text, "%d.%m.%y")
-            return date
-        except ValueError:
-            continue
+        text = result[1].strip()  # Убираем лишние пробелы
+        print(f"Распознанный текст: {text}")  # Отладочная информация
+
+        # Ищем дату в формате DD.MM.YY с помощью регулярного выражения
+        date_pattern = re.compile(r"\b(\d{2}\.\d{2}\.\d{2})\b")
+        match = date_pattern.search(text)
+        if match:
+            cleaned_text = match.group(1)  # Извлекаем найденную дату
+            print(f"Найдена дата: {cleaned_text}")  # Отладочная информация
+            try:
+                # Пытаемся распознать дату в формате "DD.MM.YY"
+                date = datetime.strptime(cleaned_text, "%d.%m.%y")
+                return date
+            except ValueError:
+                print(f"Текст '{cleaned_text}' не соответствует формату даты.")  # Отладочная информация
+                continue
+        else:
+            print(f"Дата не найдена в тексте: {text}")  # Отладочная информация
     return None
-
-
-# Функция для проверки актуальности даты
-def is_date_actual(date, delta_days=4):
-    current_date = datetime.now()
-    return current_date - date <= timedelta(days=delta_days)
 
 
 # Функция для вывода кастомного окна с красным фоном
@@ -103,32 +111,37 @@ def main():
 
         if date:
             current_date = datetime.now()
-            if date > current_date:
+            delta = (date - current_date).days  # Разница в днях между датой на бирке и текущей датой
+
+            if delta > 4:  # Если дата старше текущей даты более чем на 4 дня
                 status = "future"
-                message = "Этот день еще не наступил."
-            elif not is_date_actual(date):
-                status = "Not relevant"
-                message = "Ошибка: Дата не актуальна!"
-            else:
+                message = f"Ошибка: Дата {date} старше {current_date} более чем на 4 дня!"
+            elif delta >= 0:  # Если дата в пределах 4 дней в будущем
                 status = "relevant"
                 message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
+            else:  # Если дата в прошлом
+                status = "Not relevant"
+                message = f"Ошибка: Дата {date} не актуальна!"
 
             print(message)
 
-            # Показываем окно только для Not relevant и future
             if status in ["Not relevant", "future"]:
-                show_custom_warning(message)  # показываем окно для ошибочных статусов
-                save_image_with_status(image, status)  # Сохраняем изображение для ошибочных статусов
+                show_custom_warning(message)  # Показываем сообщение пользователю об ошибках
+                save_image_with_status(image, status)  # Сохраняем изображение для ошибок
         else:
             status = "Not recognized"
             print("Дата не распознана.")
-            show_custom_warning("Дата не распознана.")  # Показываем окно, если дата не распознана
-            save_image_with_status(image, status)  # Сохраняем изображение
+            show_custom_warning("Дата не распознана.")
+            save_image_with_status(image, status)
 
-        cleanup_old_files()  # Удаляем старые файлы, если их больше 100
+        cleanup_old_files()
         time.sleep(5)
 
 
 if __name__ == "__main__":
-    main()
-
+    # main()
+    thread = threading.Thread(target=main)
+    thread.daemon = True
+    thread.start()
+    time.sleep(30)  # Время работы
+    print("Программа завершена")
