@@ -1,14 +1,12 @@
-# pip install easyocr numpy Pillow torch
-# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-# pip install easyocr
+import os
+import shutil
+from PIL import ImageGrab, Image
 import easyocr
 import numpy as np
-from PIL import ImageGrab
 from datetime import datetime, timedelta
 import time
 import torch
-import tkinter as tk  # Для создания кастомных окон
-from tkinter import messagebox  # Для стандартных окон (не используется здесь)
+import tkinter as tk
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -22,10 +20,16 @@ else:
 
 print(f"Использование устройства: {device}")
 
+# Папка для сохранения изображений
+output_folder = "screenshots"
+os.makedirs(output_folder, exist_ok=True)  # Создаем папку, если она не существует
+
 
 # Функция для захвата определенной области экрана
 def capture_screen_area(bbox):
     screenshot = ImageGrab.grab(bbox=bbox)
+    # Поворачиваем изображение на 90 градусов (или -90, в зависимости от ориентации текста)
+    screenshot = screenshot.rotate(90, expand=True)
     return np.array(screenshot)
 
 
@@ -51,57 +55,63 @@ def is_date_actual(date, delta_days=4):
 
 # Функция для вывода кастомного окна с красным фоном
 def show_custom_warning(message):
-    # Создаем окно
     warning_window = tk.Tk()
     warning_window.title("Предупреждение")
-    warning_window.geometry("400x200")  # Размер окна
-    warning_window.configure(bg="red")  # Красный фон
-
-    # Добавляем текст сообщения
+    warning_window.geometry("400x200")
+    warning_window.configure(bg="red")
     label = tk.Label(warning_window, text=message, font=("Arial", 14), bg="red", fg="white")
     label.pack(pady=50)
-
-    # Добавляем кнопку "ОК"
     ok_button = tk.Button(warning_window, text="OK", command=warning_window.destroy, bg="white", fg="black")
     ok_button.pack()
-
-    # Запускаем главный цикл окна
     warning_window.mainloop()
+
+
+# Функция для сохранения изображения с указанием статуса
+def save_image_with_status(image, status):
+    # Генерируем имя файла: дата_время_статус.png
+    filename = datetime.now().strftime("%y.%m.%d_%H.%M.%S") + f"_{status}.png"
+    filepath = os.path.join(output_folder, filename)
+    Image.fromarray(image).save(filepath)
+    print(f"Изображение сохранено: {filepath}")
+
+
+# Функция для удаления старых файлов, если их больше 100
+def cleanup_old_files():
+    files = sorted(os.listdir(output_folder), key=lambda x: os.path.getmtime(os.path.join(output_folder, x)))
+    while len(files) > 100:  # Ограничиваем количество файлов до 100
+        oldest_file = files.pop(0)
+        os.remove(os.path.join(output_folder, oldest_file))
+        print(f"Удален старый файл: {oldest_file}")
 
 
 # Основной цикл программы
 def main():
-    # Сначала показываем сообщение о запуске
     show_custom_warning("Распознавание даты запущено")
-
-    # Определяем область экрана, где появляется бирка с датой (left, top, right, bottom)
-    bbox = (1200, 1000, 1500, 1100)
+    bbox = (185, 350, 245, 450)  # Область захвата экрана
 
     while True:
-        # Захватываем область экрана
         image = capture_screen_area(bbox)
-
-        # Распознаем дату
         date = extract_date_from_image(image)
 
         if date:
-            # Проверяем актуальность даты
             current_date = datetime.now()
-
             if date > current_date:
+                status = "future"
                 message = "Этот день еще не наступил."
-                print(message)
-                show_custom_warning(message)  # Вывод кастомного окна с предупреждением
             elif not is_date_actual(date):
+                status = "Not relevant"
                 message = "Ошибка: Дата не актуальна!"
-                print(message)
-                show_custom_warning(message)  # Вывод кастомного окна с предупреждением
             else:
-                print(f"Дата актуальна: {date.strftime('%d.%m.%y')}")
+                status = "relevant"
+                message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
+
+            print(message)
+            show_custom_warning(message)
+            save_image_with_status(image, status)  # Сохраняем изображение с статусом
         else:
             print("Дата не распознана.")
 
-        # Пауза перед следующим захватом экрана
+        cleanup_old_files()  # Удаляем старые файлы, если их больше 100
         time.sleep(5)
 
 
