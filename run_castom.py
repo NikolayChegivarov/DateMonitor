@@ -1,3 +1,6 @@
+# pip install easyocr numpy Pillow torch
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# pip install easyocr
 import os
 import shutil
 from PIL import ImageGrab, Image
@@ -7,6 +10,7 @@ from datetime import datetime, timedelta
 import time
 import torch
 import tkinter as tk
+from threading import Thread  # Добавлен импорт для многопоточности
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -55,15 +59,19 @@ def is_date_actual(date, delta_days=4):
 
 # Функция для вывода кастомного окна с красным фоном
 def show_custom_warning(message):
-    warning_window = tk.Tk()
-    warning_window.title("Предупреждение")
-    warning_window.geometry("400x200")
-    warning_window.configure(bg="red")
-    label = tk.Label(warning_window, text=message, font=("Arial", 14), bg="red", fg="white")
-    label.pack(pady=50)
-    ok_button = tk.Button(warning_window, text="OK", command=warning_window.destroy, bg="white", fg="black")
-    ok_button.pack()
-    warning_window.mainloop()
+    def show_window():
+        warning_window = tk.Tk()
+        warning_window.title("Предупреждение")
+        warning_window.geometry("400x200")
+        warning_window.configure(bg="red")
+        label = tk.Label(warning_window, text=message, font=("Arial", 14), bg="red", fg="white")
+        label.pack(pady=50)
+        ok_button = tk.Button(warning_window, text="OK", command=warning_window.destroy, bg="white", fg="black")
+        ok_button.pack()
+        warning_window.mainloop()
+
+    # Запускаем окно в отдельном потоке
+    Thread(target=show_window).start()
 
 
 # Функция для сохранения изображения с указанием статуса
@@ -106,10 +114,16 @@ def main():
                 message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
 
             print(message)
-            show_custom_warning(message)
-            save_image_with_status(image, status)  # Сохраняем изображение с статусом
+
+            # Показываем окно только для Not relevant и future
+            if status in ["Not relevant", "future"]:
+                show_custom_warning(message)  # показываем окно для ошибочных статусов
+                save_image_with_status(image, status)  # Сохраняем изображение для ошибочных статусов
         else:
+            status = "Not recognized"
             print("Дата не распознана.")
+            show_custom_warning("Дата не распознана.")  # Показываем окно, если дата не распознана
+            save_image_with_status(image, status)  # Сохраняем изображение
 
         cleanup_old_files()  # Удаляем старые файлы, если их больше 100
         time.sleep(5)
@@ -117,3 +131,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
