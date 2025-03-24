@@ -135,13 +135,13 @@ def main():
             save_image_with_status(image, status)
 
         cleanup_old_files()
-        time.sleep(5)
+        time.sleep(15)
 
 
 if __name__ == "__main__":
-    # main()
-    thread = threading.Thread(target=main)
-    thread.daemon = True
-    thread.start()
-    time.sleep(30)  # Время работы
-    print("Программа завершена")
+    main()
+    # thread = threading.Thread(target=main)
+    # thread.daemon = True
+    # thread.start()
+    # time.sleep(30)  # Время работы
+    # print("Программа завершена")
