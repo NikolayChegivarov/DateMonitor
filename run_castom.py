@@ -6,13 +6,12 @@ import shutil
 from PIL import ImageGrab, Image
 import easyocr
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 import torch
 import tkinter as tk
-from threading import Thread
-import threading
-import re  # Добавлен импорт для работы с регулярными выражениями
+from threading import Thread, Event
+import re
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -28,118 +27,181 @@ print(f"Использование устройства: {device}")
 
 # Папка для сохранения изображений
 output_folder = "screenshots"
-os.makedirs(output_folder, exist_ok=True)  # Создаем папку, если она не существует
+os.makedirs(output_folder, exist_ok=True)
 
 
-# Функция для захвата определенной области экрана
-def capture_screen_area(bbox):
-    screenshot = ImageGrab.grab(bbox=bbox)
-    # Поворачиваем изображение на 90 градусов (или -90, в зависимости от ориентации текста)
-    screenshot = screenshot.rotate(90, expand=True)
-    return np.array(screenshot)
+class App:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Мониторинг дат")
+        self.root.geometry("400x200")
 
+        # Главное окно нельзя закрыть, только свернуть
+        self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
 
-# Функция для распознавания даты
-def extract_date_from_image(image):
-    results = reader.readtext(image)
-    print(f"Распознанные результаты: {results}")  # Отладочная информация
-    for result in results:
-        text = result[1].strip()  # Убираем лишние пробелы
-        print(f"Распознанный текст: {text}")  # Отладочная информация
+        self.message_var = tk.StringVar()
+        self.message_var.set("Инициализация...")
 
-        # Ищем дату в формате DD.MM.YY с помощью регулярного выражения
-        date_pattern = re.compile(r"\b(\d{2}\.\d{2}\.\d{2})\b")
-        match = date_pattern.search(text)
-        if match:
-            cleaned_text = match.group(1)  # Извлекаем найденную дату
-            print(f"Найдена дата: {cleaned_text}")  # Отладочная информация
+        self.label = tk.Label(
+            self.root,
+            textvariable=self.message_var,
+            font=("Arial", 14),
+            bg="red",
+            fg="white",
+            wraplength=380
+        )
+        self.label.pack(expand=True, fill='both')
+
+        self.stop_event = Event()
+        self.worker_thread = None
+
+        # Окно предупреждения
+        self.warning_window = None
+
+    def minimize_to_tray(self):
+        """Сворачивает окно в трей вместо закрытия"""
+        self.root.iconify()
+
+    def show_warning(self, message, is_error=True):
+        """Показывает окно с предупреждением (только одно)"""
+        # Закрываем предыдущее окно, если оно есть
+        if self.warning_window is not None:
             try:
-                # Пытаемся распознать дату в формате "DD.MM.YY"
-                date = datetime.strptime(cleaned_text, "%d.%m.%y")
-                return date
-            except ValueError:
-                print(f"Текст '{cleaned_text}' не соответствует формату даты.")  # Отладочная информация
-                continue
-        else:
-            print(f"Дата не найдена в тексте: {text}")  # Отладочная информация
-    return None
+                self.warning_window.destroy()
+            except:
+                pass
 
+        # Создаем новое окно
+        self.warning_window = tk.Toplevel(self.root)
+        self.warning_window.title("Предупреждение")
+        self.warning_window.geometry("400x200")
+        bg_color = "red" if is_error else "green"
+        self.warning_window.configure(bg=bg_color)
 
-# Функция для вывода кастомного окна с красным фоном
-def show_custom_warning(message):
-    def show_window():
-        warning_window = tk.Tk()
-        warning_window.title("Предупреждение")
-        warning_window.geometry("400x200")
-        warning_window.configure(bg="red")
-        label = tk.Label(warning_window, text=message, font=("Arial", 14), bg="red", fg="white")
-        label.pack(pady=50)
-        ok_button = tk.Button(warning_window, text="OK", command=warning_window.destroy, bg="white", fg="black")
-        ok_button.pack()
-        warning_window.mainloop()
+        label = tk.Label(
+            self.warning_window,
+            text=message,
+            font=("Arial", 14),
+            bg=bg_color,
+            fg="white",
+            wraplength=380
+        )
+        label.pack(expand=True, fill='both')
 
-    # Запускаем окно в отдельном потоке
-    Thread(target=show_window).start()
+        # Делаем окно поверх всех и модальным
+        self.warning_window.attributes('-topmost', True)
+        self.warning_window.grab_set()
 
+        # При закрытии окна просто уничтожаем его
+        self.warning_window.protocol("WM_DELETE_WINDOW", self.warning_window.destroy)
 
-# Функция для сохранения изображения с указанием статуса
-def save_image_with_status(image, status):
-    # Генерируем имя файла: дата_время_статус.png
-    filename = datetime.now().strftime("%y.%m.%d_%H.%M.%S") + f"_{status}.png"
-    filepath = os.path.join(output_folder, filename)
-    Image.fromarray(image).save(filepath)
-    print(f"Изображение сохранено: {filepath}")
+    def update_status(self, message, is_error=False):
+        """Обновляет статус в главном окне"""
+        self.message_var.set(message)
+        self.label.config(bg="red" if is_error else "green")
+        self.root.update()
 
+        # Для ошибок показываем отдельное окно
+        if is_error:
+            self.show_warning(message, is_error)
 
-# Функция для удаления старых файлов, если их больше 100
-def cleanup_old_files():
-    files = sorted(os.listdir(output_folder), key=lambda x: os.path.getmtime(os.path.join(output_folder, x)))
-    while len(files) > 100:  # Ограничиваем количество файлов до 100
-        oldest_file = files.pop(0)
-        os.remove(os.path.join(output_folder, oldest_file))
-        print(f"Удален старый файл: {oldest_file}")
+    def run_worker(self):
+        """Основной рабочий цикл"""
+        bbox = (185, 350, 245, 450)
 
+        while not self.stop_event.is_set():
+            try:
+                image = ImageGrab.grab(bbox=bbox)
+                image = image.rotate(90, expand=True)
+                image_np = np.array(image)
 
-# Основной цикл программы
-def main():
-    show_custom_warning("Распознавание даты запущено")
-    bbox = (185, 350, 245, 450)  # Область захвата экрана
+                date = self.extract_date_from_image(image_np)
 
-    while True:
-        image = capture_screen_area(bbox)
-        date = extract_date_from_image(image)
+                if date:
+                    current_date = datetime.now()
+                    delta = (date - current_date).days
 
-        if date:
-            current_date = datetime.now()
-            delta = (date - current_date).days  # Разница в днях между датой на бирке и текущей датой
+                    if delta > 4:
+                        status = "future"
+                        message = f"Ошибка: Дата {date.date()} старше текущей на {delta} дней!"
+                        is_error = True
+                    elif delta >= 0:
+                        status = "relevant"
+                        message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
+                        is_error = False
+                    else:
+                        status = "Not relevant"
+                        message = f"Ошибка: Дата {date.date()} просрочена на {-delta} дней!"
+                        is_error = True
 
-            if delta > 4:  # Если дата старше текущей даты более чем на 4 дня
-                status = "future"
-                message = f"Ошибка: Дата {date} старше {current_date} более чем на 4 дня!"
-            elif delta >= 0:  # Если дата в пределах 4 дней в будущем
-                status = "relevant"
-                message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
-            else:  # Если дата в прошлом
-                status = "Not relevant"
-                message = f"Ошибка: Дата {date} не актуальна!"
+                    print(message)
+                    self.save_image_with_status(image_np, status)
+                else:
+                    status = "Not recognized"
+                    message = "Дата не распознана."
+                    is_error = True
+                    print(message)
+                    self.save_image_with_status(image_np, status)
 
-            print(message)
+                self.root.after(0, self.update_status, message, is_error)
+                self.cleanup_old_files()
 
-            if status in ["Not relevant", "future"]:
-                show_custom_warning(message)  # Показываем сообщение пользователю об ошибках
-                save_image_with_status(image, status)  # Сохраняем изображение для ошибок
-        else:
-            status = "Not recognized"
-            print("Дата не распознана.")
-            show_custom_warning("Дата не распознана.")
-            save_image_with_status(image, status)
+            except Exception as e:
+                error_msg = f"Ошибка: {str(e)}"
+                print(error_msg)
+                self.root.after(0, self.update_status, error_msg, True)
 
-        cleanup_old_files()
-        time.sleep(15)
+            time.sleep(15)
+
+    def extract_date_from_image(self, image):
+        """Извлекает дату из изображения"""
+        results = reader.readtext(image)
+        print(f"Распознанные результаты: {results}")
+
+        for result in results:
+            text = result[1].strip()
+            print(f"Распознанный текст: {text}")
+
+            date_pattern = re.compile(r"\b(\d{2}\.\d{2}\.\d{2})\b")
+            match = date_pattern.search(text)
+
+            if match:
+                cleaned_text = match.group(1)
+                print(f"Найдена дата: {cleaned_text}")
+                try:
+                    return datetime.strptime(cleaned_text, "%d.%m.%y")
+                except ValueError:
+                    print(f"Текст '{cleaned_text}' не соответствует формату даты.")
+                    continue
+
+        return None
+
+    def save_image_with_status(self, image, status):
+        """Сохраняет изображение с указанием статуса"""
+        filename = datetime.now().strftime("%y.%m.%d_%H.%M.%S") + f"_{status}.png"
+        filepath = os.path.join(output_folder, filename)
+        Image.fromarray(image).save(filepath)
+        print(f"Изображение сохранено: {filepath}")
+
+    def cleanup_old_files(self):
+        """Удаляет старые файлы, оставляя только 100 последних"""
+        files = sorted(os.listdir(output_folder), key=lambda x: os.path.getmtime(os.path.join(output_folder, x)))
+        while len(files) > 100:
+            oldest_file = files.pop(0)
+            os.remove(os.path.join(output_folder, oldest_file))
+            print(f"Удален старый файл: {oldest_file}")
+
+    def run(self):
+        """Запускает приложение"""
+        self.update_status("Распознавание дат запущено", False)
+        self.worker_thread = Thread(target=self.run_worker, daemon=True)
+        self.worker_thread.start()
+        self.root.mainloop()
 
 
 if __name__ == "__main__":
-    main()
+    app = App()
+    app.run()
     # thread = threading.Thread(target=main)
     # thread.daemon = True
     # thread.start()
