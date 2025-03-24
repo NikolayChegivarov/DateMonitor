@@ -33,36 +33,14 @@ os.makedirs(output_folder, exist_ok=True)
 class App:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Мониторинг дат")
-        self.root.geometry("400x200")
-
-        # Главное окно нельзя закрыть, только свернуть
-        self.root.protocol("WM_DELETE_WINDOW", self.minimize_to_tray)
-
-        self.message_var = tk.StringVar()
-        self.message_var.set("Инициализация...")
-
-        self.label = tk.Label(
-            self.root,
-            textvariable=self.message_var,
-            font=("Arial", 14),
-            bg="red",
-            fg="white",
-            wraplength=380
-        )
-        self.label.pack(expand=True, fill='both')
-
-        self.stop_event = Event()
-        self.worker_thread = None
+        self.root.withdraw()  # Скрываем главное окно, так как оно не нужно
 
         # Окно предупреждения
         self.warning_window = None
+        self.stop_event = Event()
+        self.worker_thread = None
 
-    def minimize_to_tray(self):
-        """Сворачивает окно в трей вместо закрытия"""
-        self.root.iconify()
-
-    def show_warning(self, message, is_error=True):
+    def show_warning(self, message):
         """Показывает окно с предупреждением (только одно)"""
         # Закрываем предыдущее окно, если оно есть
         if self.warning_window is not None:
@@ -72,38 +50,26 @@ class App:
                 pass
 
         # Создаем новое окно
-        self.warning_window = tk.Toplevel(self.root)
+        self.warning_window = tk.Toplevel()
         self.warning_window.title("Предупреждение")
         self.warning_window.geometry("400x200")
-        bg_color = "red" if is_error else "green"
-        self.warning_window.configure(bg=bg_color)
+        self.warning_window.configure(bg="red")
 
         label = tk.Label(
             self.warning_window,
             text=message,
             font=("Arial", 14),
-            bg=bg_color,
+            bg="red",
             fg="white",
             wraplength=380
         )
         label.pack(expand=True, fill='both')
 
-        # Делаем окно поверх всех и модальным
+        # Делаем окно поверх всех
         self.warning_window.attributes('-topmost', True)
-        self.warning_window.grab_set()
 
         # При закрытии окна просто уничтожаем его
         self.warning_window.protocol("WM_DELETE_WINDOW", self.warning_window.destroy)
-
-    def update_status(self, message, is_error=False):
-        """Обновляет статус в главном окне"""
-        self.message_var.set(message)
-        self.label.config(bg="red" if is_error else "green")
-        self.root.update()
-
-        # Для ошибок показываем отдельное окно
-        if is_error:
-            self.show_warning(message, is_error)
 
     def run_worker(self):
         """Основной рабочий цикл"""
@@ -121,35 +87,35 @@ class App:
                     current_date = datetime.now()
                     delta = (date - current_date).days
 
-                    if delta > 4:
+                    # Сохраняем оригинальную логику обработки дат
+                    if delta > 4:  # Если дата старше текущей даты более чем на 4 дня
                         status = "future"
-                        message = f"Ошибка: Дата {date.date()} старше текущей на {delta} дней!"
-                        is_error = True
-                    elif delta >= 0:
+                        message = f"Ошибка: Дата {date} старше {current_date} более чем на 4 дня!"
+                    elif delta >= 0:  # Если дата в пределах 4 дней в будущем
                         status = "relevant"
                         message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
-                        is_error = False
-                    else:
+                    else:  # Если дата в прошлом
                         status = "Not relevant"
-                        message = f"Ошибка: Дата {date.date()} просрочена на {-delta} дней!"
-                        is_error = True
+                        message = f"Ошибка: Дата {date} не актуальна!"
 
                     print(message)
-                    self.save_image_with_status(image_np, status)
+
+                    # Сохраняем изображение только при ошибках
+                    if status in ["Not relevant", "future"]:
+                        self.show_warning(message)
+                        self.save_image_with_status(image_np, status)
                 else:
                     status = "Not recognized"
                     message = "Дата не распознана."
-                    is_error = True
                     print(message)
+                    # Сохраняем изображение при ошибке распознавания
                     self.save_image_with_status(image_np, status)
 
-                self.root.after(0, self.update_status, message, is_error)
                 self.cleanup_old_files()
 
             except Exception as e:
                 error_msg = f"Ошибка: {str(e)}"
                 print(error_msg)
-                self.root.after(0, self.update_status, error_msg, True)
 
             time.sleep(15)
 
@@ -193,7 +159,6 @@ class App:
 
     def run(self):
         """Запускает приложение"""
-        self.update_status("Распознавание дат запущено", False)
         self.worker_thread = Thread(target=self.run_worker, daemon=True)
         self.worker_thread.start()
         self.root.mainloop()
@@ -202,8 +167,3 @@ class App:
 if __name__ == "__main__":
     app = App()
     app.run()
-    # thread = threading.Thread(target=main)
-    # thread.daemon = True
-    # thread.start()
-    # time.sleep(30)  # Время работы
-    # print("Программа завершена")
