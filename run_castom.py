@@ -12,6 +12,7 @@ import torch
 import tkinter as tk
 from threading import Thread, Event
 import re
+from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -29,11 +30,10 @@ print(f"Использование устройства: {device}")
 output_folder = "screenshots"
 os.makedirs(output_folder, exist_ok=True)
 
-# Координаты области для захвата изображения (лево, потолок, пол, право)
-bbox = (185, 350, 245, 450)
-
-# Координаты для размещения окна предупреждения (x, y, ширина, высота)
-bbox2 = (900, 30, 910, 70)
+bbox = BBOX_COORDS
+bbox2 = WARNING_COORDS
+delay = DELAY
+delta_days = DELTA_DAYS
 
 
 class App:
@@ -91,9 +91,9 @@ class App:
                     delta = (date - current_date).days
 
                     # Оригинальная логика обработки дат
-                    if delta > 4:
+                    if delta > delta_days:
                         status = "future"
-                        message = f"Ошибка: Дата {date} старше {current_date} более чем на 4 дня!"
+                        message = f"Ошибка: Дата {date} старше {current_date} более чем на {delta_days} дня!"
                     elif delta >= 0:
                         status = "relevant"
                         message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
@@ -117,7 +117,7 @@ class App:
             except Exception as e:
                 print(f"Ошибка: {str(e)}")
 
-            time.sleep(15)
+            time.sleep(delay)
 
     def extract_date_from_image(self, image):
         """Извлекает дату из изображения"""
