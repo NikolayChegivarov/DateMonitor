@@ -29,30 +29,37 @@ print(f"Использование устройства: {device}")
 output_folder = "screenshots"
 os.makedirs(output_folder, exist_ok=True)
 
+# Координаты области для захвата изображения (левый верхний угол, правый нижний)
+bbox = (185, 350, 245, 450)
+
+# Координаты для размещения окна предупреждения (x, y, width, height)
+bbox2 = (900, 30, 910, 70)
+
 
 class App:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.withdraw()  # Скрываем главное окно, так как оно не нужно
+        self.root.withdraw()  # Скрываем главное окно
 
-        # Окно предупреждения
         self.warning_window = None
         self.stop_event = Event()
         self.worker_thread = None
 
     def show_warning(self, message):
-        """Показывает окно с предупреждением (только одно)"""
-        # Закрываем предыдущее окно, если оно есть
+        """Показывает окно с предупреждением в заданной позиции"""
         if self.warning_window is not None:
             try:
                 self.warning_window.destroy()
             except:
                 pass
 
-        # Создаем новое окно
         self.warning_window = tk.Toplevel()
         self.warning_window.title("Предупреждение")
-        self.warning_window.geometry("400x200")
+
+        # Устанавливаем размер и позицию окна из bbox2
+        x, y, width, height = bbox2
+        self.warning_window.geometry(f"{width}x{height}+{x}+{y}")
+
         self.warning_window.configure(bg="red")
 
         label = tk.Label(
@@ -61,20 +68,16 @@ class App:
             font=("Arial", 14),
             bg="red",
             fg="white",
-            wraplength=380
+            wraplength=width - 20
         )
         label.pack(expand=True, fill='both')
 
         # Делаем окно поверх всех
         self.warning_window.attributes('-topmost', True)
-
-        # При закрытии окна просто уничтожаем его
         self.warning_window.protocol("WM_DELETE_WINDOW", self.warning_window.destroy)
 
     def run_worker(self):
         """Основной рабочий цикл"""
-        bbox = (185, 350, 245, 450)
-
         while not self.stop_event.is_set():
             try:
                 image = ImageGrab.grab(bbox=bbox)
@@ -87,20 +90,19 @@ class App:
                     current_date = datetime.now()
                     delta = (date - current_date).days
 
-                    # Сохраняем оригинальную логику обработки дат
-                    if delta > 4:  # Если дата старше текущей даты более чем на 4 дня
+                    # Оригинальная логика обработки дат
+                    if delta > 4:
                         status = "future"
                         message = f"Ошибка: Дата {date} старше {current_date} более чем на 4 дня!"
-                    elif delta >= 0:  # Если дата в пределах 4 дней в будущем
+                    elif delta >= 0:
                         status = "relevant"
                         message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
-                    else:  # Если дата в прошлом
+                    else:
                         status = "Not relevant"
                         message = f"Ошибка: Дата {date} не актуальна!"
 
                     print(message)
 
-                    # Сохраняем изображение только при ошибках
                     if status in ["Not relevant", "future"]:
                         self.show_warning(message)
                         self.save_image_with_status(image_np, status)
@@ -108,14 +110,12 @@ class App:
                     status = "Not recognized"
                     message = "Дата не распознана."
                     print(message)
-                    # Сохраняем изображение при ошибке распознавания
                     self.save_image_with_status(image_np, status)
 
                 self.cleanup_old_files()
 
             except Exception as e:
-                error_msg = f"Ошибка: {str(e)}"
-                print(error_msg)
+                print(f"Ошибка: {str(e)}")
 
             time.sleep(15)
 
@@ -137,7 +137,6 @@ class App:
                 try:
                     return datetime.strptime(cleaned_text, "%d.%m.%y")
                 except ValueError:
-                    print(f"Текст '{cleaned_text}' не соответствует формату даты.")
                     continue
 
         return None
@@ -150,12 +149,11 @@ class App:
         print(f"Изображение сохранено: {filepath}")
 
     def cleanup_old_files(self):
-        """Удаляет старые файлы, оставляя только 100 последних"""
+        """Удаляет старые файлы (оставляет 100 последних)"""
         files = sorted(os.listdir(output_folder), key=lambda x: os.path.getmtime(os.path.join(output_folder, x)))
         while len(files) > 100:
             oldest_file = files.pop(0)
             os.remove(os.path.join(output_folder, oldest_file))
-            print(f"Удален старый файл: {oldest_file}")
 
     def run(self):
         """Запускает приложение"""
