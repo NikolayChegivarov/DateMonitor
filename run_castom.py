@@ -2,7 +2,7 @@
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # pip install easyocr
 import os
-import shutil
+# import shutil
 from PIL import ImageGrab, Image
 import easyocr
 import numpy as np
@@ -119,7 +119,8 @@ class App:
 
             time.sleep(delay)
 
-    def extract_date_from_image(self, image):
+    @staticmethod
+    def extract_date_from_image(image):
         """Извлекает дату из изображения"""
         results = reader.readtext(image)
         print(f"Распознанные результаты: {results}")
@@ -141,14 +142,16 @@ class App:
 
         return None
 
-    def save_image_with_status(self, image, status):
+    @staticmethod
+    def save_image_with_status(image, status):
         """Сохраняет изображение с указанием статуса"""
         filename = datetime.now().strftime("%y.%m.%d_%H.%M.%S") + f"_{status}.png"
         filepath = os.path.join(output_folder, filename)
         Image.fromarray(image).save(filepath)
         print(f"Изображение сохранено: {filepath}")
 
-    def cleanup_old_files(self):
+    @staticmethod
+    def cleanup_old_files():
         """Удаляет старые файлы (оставляет 100 последних)"""
         files = sorted(os.listdir(output_folder), key=lambda x: os.path.getmtime(os.path.join(output_folder, x)))
         while len(files) > 100:
