@@ -1,8 +1,4 @@
-# pip install easyocr numpy Pillow torch
-# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-# pip install easyocr
 import os
-# import shutil
 from PIL import ImageGrab, Image
 import easyocr
 import numpy as np
@@ -13,6 +9,7 @@ import tkinter as tk
 from threading import Thread, Event
 import re
 from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS
+import signal
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -44,6 +41,16 @@ class App:
         self.warning_window = None
         self.stop_event = Event()
         self.worker_thread = None
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+    def signal_handler(self, signum, frame):
+        """Для корректного завершения программы."""
+        print("\nЗавершение программы...")
+        self.stop_event.set()
+        if self.warning_window:
+            self.warning_window.destroy()
+        self.root.quit()
+        self.root.destroy()
 
     def show_warning(self, message):
         """Показывает окно с предупреждением в заданной позиции"""

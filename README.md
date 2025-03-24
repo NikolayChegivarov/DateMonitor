@@ -8,6 +8,12 @@ DateMonitor
 ```bash
 pip install -r requirements.txt
 ```
+Или вручную
+```bash
+pip install easyocr numpy Pillow torch
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install easyocr
+```
 
 Для определения нужной области экрана в формате bbox
 запустите скрипт region.py следуйте инструкциям:
