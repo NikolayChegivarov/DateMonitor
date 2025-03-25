@@ -41,6 +41,7 @@ class App:
         self.root.withdraw()  # Скрываем главное окно
 
         self.warning_window = None
+        self.startup_window = None
         self.stop_event = Event()
         self.worker_thread = None
         signal.signal(signal.SIGINT, self.signal_handler)
@@ -208,6 +209,7 @@ class App:
             self.warning_window.destroy()
         self.root.quit()
         self.root.destroy()
+
 
 if __name__ == "__main__":
     app = App()
