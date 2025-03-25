@@ -8,7 +8,7 @@ import torch
 import tkinter as tk
 from threading import Thread, Event
 import re
-from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS
+from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS, SCREENSHOTS
 import signal
 
 # Инициализация EasyOCR
@@ -31,6 +31,7 @@ bbox = BBOX_COORDS
 bbox2 = WARNING_COORDS
 delay = DELAY
 delta_days = DELTA_DAYS
+quantity_screenshot = SCREENSHOTS
 
 
 class App:
@@ -42,15 +43,6 @@ class App:
         self.stop_event = Event()
         self.worker_thread = None
         signal.signal(signal.SIGINT, self.signal_handler)
-
-    def signal_handler(self, signum, frame):
-        """Для корректного завершения программы."""
-        print("\nЗавершение программы...")
-        self.stop_event.set()
-        if self.warning_window:
-            self.warning_window.destroy()
-        self.root.quit()
-        self.root.destroy()
 
     def show_warning(self, message):
         """Показывает окно с предупреждением в заданной позиции"""
@@ -151,7 +143,7 @@ class App:
 
     @staticmethod
     def save_image_with_status(image, status):
-        """Сохраняет изображение с указанием статуса"""
+        """Сохраняет изображение с указанием даты, времени, статуса."""
         filename = datetime.now().strftime("%y.%m.%d_%H.%M.%S") + f"_{status}.png"
         filepath = os.path.join(output_folder, filename)
         Image.fromarray(image).save(filepath)
@@ -159,9 +151,9 @@ class App:
 
     @staticmethod
     def cleanup_old_files():
-        """Удаляет старые файлы (оставляет 100 последних)"""
+        """Удаляет старые файлы (оставляет N последних)"""
         files = sorted(os.listdir(output_folder), key=lambda x: os.path.getmtime(os.path.join(output_folder, x)))
-        while len(files) > 100:
+        while len(files) > quantity_screenshot:
             oldest_file = files.pop(0)
             os.remove(os.path.join(output_folder, oldest_file))
 
@@ -171,6 +163,14 @@ class App:
         self.worker_thread.start()
         self.root.mainloop()
 
+    def signal_handler(self, signum, frame):
+        """Для корректного завершения программы."""
+        print("\nЗавершение программы...")
+        self.stop_event.set()
+        if self.warning_window:
+            self.warning_window.destroy()
+        self.root.quit()
+        self.root.destroy()
 
 if __name__ == "__main__":
     app = App()
