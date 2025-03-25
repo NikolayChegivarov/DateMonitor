@@ -8,8 +8,15 @@ import torch
 import tkinter as tk
 from threading import Thread, Event
 import re
-from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS, SCREENSHOTS, FIRST_WINDOWS
 import signal
+from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS, SCREENSHOTS, FIRST_WINDOWS
+
+bbox = BBOX_COORDS
+bbox2 = WARNING_COORDS
+bbox3 = FIRST_WINDOWS
+delay = DELAY
+delta_days = DELTA_DAYS
+quantity_screenshot = SCREENSHOTS
 
 # Инициализация EasyOCR
 reader = easyocr.Reader(['en'])
@@ -26,13 +33,6 @@ print(f"Использование устройства: {device}")
 # Папка для сохранения изображений
 output_folder = "screenshots"
 os.makedirs(output_folder, exist_ok=True)
-
-bbox = BBOX_COORDS
-bbox2 = WARNING_COORDS
-bbox3 = FIRST_WINDOWS
-delay = DELAY
-delta_days = DELTA_DAYS
-quantity_screenshot = SCREENSHOTS
 
 
 class App:
