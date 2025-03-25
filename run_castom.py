@@ -8,7 +8,7 @@ import torch
 import tkinter as tk
 from threading import Thread, Event
 import re
-from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS, SCREENSHOTS
+from config import BBOX_COORDS, WARNING_COORDS, DELAY, DELTA_DAYS, SCREENSHOTS, FIRST_WINDOWS
 import signal
 
 # Инициализация EasyOCR
@@ -29,6 +29,7 @@ os.makedirs(output_folder, exist_ok=True)
 
 bbox = BBOX_COORDS
 bbox2 = WARNING_COORDS
+bbox3 = FIRST_WINDOWS
 delay = DELAY
 delta_days = DELTA_DAYS
 quantity_screenshot = SCREENSHOTS
@@ -43,6 +44,42 @@ class App:
         self.stop_event = Event()
         self.worker_thread = None
         signal.signal(signal.SIGINT, self.signal_handler)
+        self.show_startup_notification()
+
+    def show_startup_notification(self):
+        """Показывает одноразовое окно уведомления о запуске программы"""
+        self.startup_window = tk.Toplevel()
+        self.startup_window.title("Программа запущена")
+
+        # Устанавливаем размер и позицию окна из bbox3
+        x, y, width, height = bbox3
+        self.startup_window.geometry(f"{width}x{height}+{x}+{y}")
+
+        self.startup_window.configure(bg="green")
+
+        label = tk.Label(
+            self.startup_window,
+            text="Программа мониторинга успешно запущена!",
+            font=("Arial", 12),
+            bg="green",
+            fg="white",
+            wraplength=width - 20
+        )
+        label.pack(expand=True, fill='both')
+
+        # Кнопка закрытия
+        close_button = tk.Button(
+            self.startup_window,
+            text="OK",
+            command=self.startup_window.destroy,
+            bg="white",
+            fg="black"
+        )
+        close_button.pack(pady=5)
+
+        # Делаем окно поверх всех
+        self.startup_window.attributes('-topmost', True)
+        self.startup_window.protocol("WM_DELETE_WINDOW", self.startup_window.destroy)
 
     def show_warning(self, message):
         """Показывает окно с предупреждением в заданной позиции"""
