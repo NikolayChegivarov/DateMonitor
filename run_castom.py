@@ -125,18 +125,26 @@ class App:
 
                 if date:
                     current_date = datetime.now()
-                    delta = (date - current_date).days
+                    # Получаем только дату (без времени) для сравнения
+                    current_date_dateonly = current_date.date()
+                    date_dateonly = date.date()
 
-                    # Оригинальная логика обработки дат
+                    # Считаем разницу в днях
+                    delta = (date_dateonly - current_date_dateonly).days
+
                     if delta > delta_days:
                         status = "future"
-                        message = f"Ошибка: Дата {date} старше {current_date} более чем на {delta_days} дня!"
+                        message = f"Ошибка: Дата {date_dateonly.strftime('%d.%m.%y')} старше {current_date_dateonly.strftime('%d.%m.%y')} более чем на {delta_days} дня!"
                     elif delta >= 0:
                         status = "relevant"
-                        message = f"Дата актуальна: {date.strftime('%d.%m.%y')}"
+                        message = f"Дата актуальна: {date_dateonly.strftime('%d.%m.%y')}"
+                        # Закрываем предупреждение, если оно есть и дата стала актуальной
+                        if self.warning_window is not None:
+                            self.warning_window.destroy()
+                            self.warning_window = None
                     else:
                         status = "Not relevant"
-                        message = f"Ошибка: Дата {date} не актуальна!"
+                        message = f"Ошибка: Дата {date_dateonly.strftime('%d.%m.%y')} не актуальна!"
 
                     print(message)
 
@@ -147,6 +155,10 @@ class App:
                     status = "Not recognized"
                     message = "Дата не распознана."
                     print(message)
+                    # Закрываем предупреждение, если оно есть и дата не распознана
+                    if self.warning_window is not None:
+                        self.warning_window.destroy()
+                        self.warning_window = None
                     self.save_image_with_status(image_np, status)
 
                 self.cleanup_old_files()
